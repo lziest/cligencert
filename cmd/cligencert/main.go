@@ -11,7 +11,9 @@ func main() {
 				&cligencert.DefaultCertificateConverter{},
 				&cligencert.CSRInfoAsker{},
 			}),
-		KeyGen: &cligencert.DefaultKeyGenerator{},
+		KeyGen:  &cligencert.DefaultKeyGenerator{},
+		ConfGen: &cligencert.ConfAsker{},
+		Signer:  &cligencert.Signer{},
 	}
 	r.Run()
 }

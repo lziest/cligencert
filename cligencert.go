@@ -32,11 +32,11 @@ type Encryptor interface {
 
 type SigningConfGenerator interface {
 	Descriptor
-	Conf() config.Signing
+	Conf() (*config.Signing, error)
 }
 type CSRSigner interface {
 	Descriptor
-	Sign(csr []byte, conf config.Signing) ([]byte, error)
+	Sign(csr []byte, conf *config.Signing) ([]byte, error)
 }
 
 type Runner struct {
@@ -47,13 +47,17 @@ type Runner struct {
 	Signer     CSRSigner
 }
 
-var bufin *bufio.Reader
-var cout *color.Color
-var errout *color.Color
+var (
+	bufin  *bufio.Reader
+	cout   *color.Color
+	gout   *color.Color
+	errout *color.Color
+)
 
 func init() {
 	bufin = bufio.NewReader(os.Stdin)
 	cout = color.New(color.FgCyan, color.Bold)
+	gout = color.New(color.FgGreen, color.Bold)
 	errout = color.New(color.FgRed, color.Bold)
 
 }
@@ -67,14 +71,26 @@ func Say(a ...interface{}) {
 	cout.Println(a...)
 }
 
+func Greet(a ...interface{}) {
+	gout.Println(a...)
+}
+
 func Error(a ...interface{}) {
 	errout.Println(a...)
 }
 
 func (r Runner) Run() {
+	if r.CertReqGen == nil {
+		Error("bad csr generating routine")
+		return
+	}
 	req, err := r.CertReqGen.GenerateRequest()
 	if err != nil {
 		Error("failed to generate csr and key:", err)
+		return
+	}
+	if r.KeyGen == nil {
+		Error("bad key generating routine")
 		return
 	}
 	csr, key, err := r.KeyGen.GenerateKeyCSR(req)
@@ -83,10 +99,10 @@ func (r Runner) Run() {
 		return
 	}
 	Say("I have the private key and csr now.")
-	Say("Here is the csr")
+	Greet("Here is the csr")
 	// non-colored output for contrast
 	fmt.Println(string(csr))
-	Say("Here is the key")
+	Greet("Here is the key")
 	fmt.Println(string(key))
 	if r.KeyEnc != nil {
 		enc, err := r.KeyEnc.Encrypt(key)
@@ -97,14 +113,27 @@ func (r Runner) Run() {
 		Say("Here is the encrypted key")
 		fmt.Println(enc)
 	}
-	/*
-		config := r.ConfGen.Conf()
-		cert, err := r.Signer.Sign(csr, config)
-		if err != nil {
-			fmt.Println("failed to sign csr:", err)
-			return
-		}
-		fmt.Println(cert)
-	*/
+
+	if r.ConfGen == nil {
+		Error("bad remote signer conf generator routine")
+		return
+	}
+	config, err := r.ConfGen.Conf()
+	if err != nil {
+		Error("failed to get remote signer config:", err)
+		return
+	}
+
+	if r.Signer == nil {
+		Error("bad remote signer routine")
+		return
+	}
+	cert, err := r.Signer.Sign(csr, config)
+	if err != nil {
+		fmt.Println("failed to sign csr:", err)
+		return
+	}
+	Greet("Here is the certificate")
+	fmt.Println(string(cert))
 
 }
