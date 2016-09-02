@@ -111,7 +111,7 @@ func (r Runner) Run() {
 			return
 		}
 		Say("Here is the encrypted key")
-		fmt.Println(enc)
+		fmt.Println(string(enc))
 	}
 
 	if r.ConfGen == nil {
